@@ -46,10 +46,8 @@ def main():
     with tempfile.TemporaryDirectory() as td:
         exe = Path(td) / "host_parity"
         subprocess.check_call(["g++", "-std=c++11", "-O2", "-Wall", "-o", str(exe), str(SRC)])
-        vals = [model["atime"], model["gain"], model["navg"], model["nflush"]] + \
-               [x for c in model["centroids"] for x in c] + [model["dmax"], model["c_empty"], model["c_margin"]]
-        # Gui gia tri model theo dung dinh dang ma colorcal gui cho ESP32 ("%.8g")
-        stdin = " ".join(str(int(v)) if i < 4 else "{:.8g}".format(v) for i, v in enumerate(vals)) + "\n"
+        # Gui model theo dung dinh dang colorcal gui cho ESP32 (MODEL SET)
+        stdin = " ".join(cc.model_values_str(model)) + "\n"
         stdin += "\n".join("{:.3f} {:.3f} {:.3f} {:.3f} {}".format(*r) for r in rows) + "\n"
         out = subprocess.run([str(exe)], input=stdin.encode(), stdout=subprocess.PIPE, check=True).stdout.decode()
 

@@ -1,7 +1,7 @@
 // sorter.h - chu trinh phan loai mau (de cuong, muc "Chu trinh phan loai mau"):
 //   NO_CAP  -> khong co nap, tiep tuc cho
 //   UNKNOWN -> gap vao khu vuc "vut bo" + bao loi qua Serial
-//   GREEN / RED / YELLOW -> gap vao hop tuong ung
+//   GREEN / RED / WHITE -> gap vao hop tuong ung
 // Bat/tat bang lenh Serial "AUTO 1" / "AUTO 0" (mac dinh tat de hieu chuan khong bi chen ngang).
 #pragma once
 #include "ColorClassifier.h"

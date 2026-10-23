@@ -1,54 +1,50 @@
-// ColorClassifier.h - doc TCS34725 + phan loai mau nap, dung chung cho
-// firmware tram hieu chuan (src/main.cpp) va firmware tay may sau nay.
+// ColorClassifier.h - do mau bang GY-33 + phan loai theo model luu trong NVS.
 #pragma once
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_TCS34725.h>
+#include "GY33.h"
 #include "ColorMath.h"
 
 struct RawMeas {
   float R, G, B, C;   // trung binh navg lan doc
-  bool saturated;     // co lan doc nao cham muc bao hoa
-  bool ok;            // false neu khong giao tiep duoc cam bien
+  bool saturated;     // co kenh nao cham 65535
+  bool ok;            // false neu loi I2C
 };
 
 class ColorClassifier {
  public:
-  // ledPin: chan dieu khien LED cua module (HIGH = bat)
-  ColorClassifier(uint8_t ledPin, uint8_t sdaPin = 21, uint8_t sclPin = 22);
+  // Khoang cach giua hai lan doc: dai hon chu ky cap nhat ~100 ms cua GY-33.
+  static const uint32_t READ_INTERVAL_MS = 120;
 
-  // Khoi dong I2C + cam bien, nap model tu NVS (neu co). Tra ve true neu thay cam bien.
-  bool begin();
+  ColorClassifier(uint8_t sdaPin, uint8_t sclPin, uint32_t i2cHz);
+
+  bool begin();                       // khoi dong I2C, GY-33, nap model tu NVS
   bool sensorOk() const { return _sensorOk; }
+  int ledLevel() { return _gy.readLedLevel(); }
+  bool setLedLevel(uint8_t level) { return _gy.writeLedLevel(level); }
 
-  void setLed(bool on);
-  void configure(uint8_t atime, uint8_t gain);   // gain: 0..3
-  uint8_t atime() const { return _atime; }
-  uint8_t gain() const { return _gain; }
-  uint32_t saturation() const { return colormath::saturationLevel(_atime); }
+  RawMeas measure(uint8_t navg, uint16_t settleMs);
 
-  // Bat LED, bo nflush lan doc dau, lay trung binh navg lan, tat LED.
-  RawMeas measure(uint8_t navg, uint8_t nflush);
-
-  // Do theo cau hinh cua model roi phan loai (dung trong chu trinh gap - tha).
+  // Do theo cau hinh cua model roi phan loai.
   colormath::Result classify(RawMeas* rawOut = nullptr);
-  colormath::Result classifyRaw(float R, float G, float B, float C, bool sat) const;
+  colormath::Result classifyRaw(float R, float G, float B, float C, bool sat) const {
+    return colormath::classify(_model, R, G, B, C, sat);
+  }
 
   bool hasModel() const { return colormath::modelValid(_model); }
   const colormath::Model& model() const { return _model; }
   const char* modelSource() const { return _modelSrc; }
-
-  // persist = true: luu vao NVS (con sau khi mat dien / nap lai firmware khac phan vung app)
-  bool setModel(const colormath::Model& m, bool persist, const char* src = "nvs");
-  void clearModel();   // xoa model trong NVS va RAM
+  bool setModel(const colormath::Model& m, bool persist, const char* src);
+  void clearModel();
 
  private:
   bool loadModelFromNvs();
+  void ensureModelLed();
 
-  Adafruit_TCS34725 _tcs;
-  uint8_t _ledPin, _sda, _scl;
-  uint8_t _atime, _gain;
-  bool _sensorOk;
+  GY33 _gy;
+  uint8_t _sda, _scl;
+  uint32_t _hz;
+  bool _sensorOk = false;
   colormath::Model _model;
-  const char* _modelSrc;
+  const char* _modelSrc = "none";
 };

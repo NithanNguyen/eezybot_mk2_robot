@@ -21,12 +21,9 @@ static void printResult(const colormath::Result& r, float R, float G, float B, f
 }
 
 static void printModel() {
-  if (!cc->hasModel()) {
-    Serial.println("MODEL,none");
-    return;
-  }
+  if (!cc->hasModel()) { Serial.println("MODEL,none"); return; }
   const colormath::Model& m = cc->model();
-  Serial.printf("MODEL,%s,%u,%u,%u,%u", cc->modelSource(), m.atime, m.gain, m.navg, m.nflush);
+  Serial.printf("MODEL,%s,%u,%u,%u", cc->modelSource(), m.led, m.navg, m.settleMs);
   for (int k = 0; k < colormath::NUM_CLASSES; k++)
     Serial.printf(",%.7f,%.7f", m.cent[k][0], m.cent[k][1]);
   Serial.printf(",%.7f,%.3f,%.3f\n", m.dmax, m.cEmpty, m.cMargin);
@@ -41,6 +38,7 @@ colormath::Result classifyAndPrint() {
   if (!cc->hasModel()) { Serial.println("ERR NO_MODEL"); return r; }
   RawMeas m;
   r = cc->classify(&m);
+  if (!m.ok) { Serial.println("ERR READ_FAIL"); return r; }
   printResult(r, m.R, m.G, m.B, m.C);
   if (r.label == colormath::UNKNOWN) {
     Serial.printf("# ERR UNKNOWN_COLOR nearest=%s dist=%.4f dmax=%.4f sat=%d\n",
@@ -56,36 +54,27 @@ bool handle(char* tok[], int n) {
     Serial.println("OK PONG");
 
   } else if (!strcmp(cmd, "INFO")) {
-    Serial.printf("INFO,fw=%s,sensor=%d,atime=%u,gain=%u,sat=%lu,it_ms=%.1f,model=%s\n",
-                  fw, cc->sensorOk() ? 1 : 0, cc->atime(), cc->gain(),
-                  (unsigned long)cc->saturation(), colormath::integrationMs(cc->atime()),
+    int led = cc->sensorOk() ? cc->ledLevel() : -1;
+    Serial.printf("INFO,fw=%s,sensor=%d,led=%d,model=%s\n", fw, cc->sensorOk() ? 1 : 0, led,
                   cc->hasModel() ? cc->modelSource() : "none");
 
   } else if (!strcmp(cmd, "LED")) {
     if (n < 2) { Serial.println("ERR BAD_ARGS"); return true; }
-    bool on = atoi(tok[1]) != 0;
-    cc->setLed(on);
-    Serial.printf("OK LED %d\n", on ? 1 : 0);
-
-  } else if (!strcmp(cmd, "CFG")) {
-    if (n < 3) { Serial.println("ERR BAD_ARGS"); return true; }
     if (!cc->sensorOk()) { Serial.println("ERR NO_SENSOR"); return true; }
-    long at = strtol(tok[1], nullptr, 0);   // nhan ca "235" lan "0xEB"
-    long g = strtol(tok[2], nullptr, 0);
-    if (at < 0 || at > 255 || g < 0 || g > 3) { Serial.println("ERR BAD_ARGS"); return true; }
-    cc->configure((uint8_t)at, (uint8_t)g);
-    Serial.printf("OK CFG,%u,%u,%lu,%.1f\n", cc->atime(), cc->gain(),
-                  (unsigned long)cc->saturation(), colormath::integrationMs(cc->atime()));
+    long lv = strtol(tok[1], nullptr, 10);
+    if (lv < 0 || lv > GY33::LED_LEVEL_MAX) { Serial.println("ERR BAD_ARGS"); return true; }
+    if (!cc->setLedLevel((uint8_t)lv)) { Serial.println("ERR I2C"); return true; }
+    Serial.printf("OK LED,%ld\n", lv);
 
   } else if (!strcmp(cmd, "MEAS")) {
     if (n < 3) { Serial.println("ERR BAD_ARGS"); return true; }
     if (!cc->sensorOk()) { Serial.println("ERR NO_SENSOR"); return true; }
-    int navg = atoi(tok[1]), nflush = atoi(tok[2]);
-    if (navg < 1 || navg > 50 || nflush < 0 || nflush > 10) { Serial.println("ERR BAD_ARGS"); return true; }
-    RawMeas m = cc->measure((uint8_t)navg, (uint8_t)nflush);
+    int navg = atoi(tok[1]), settle = atoi(tok[2]);
+    if (navg < 1 || navg > 50 || settle < 0 || settle > 5000) { Serial.println("ERR BAD_ARGS"); return true; }
+    RawMeas m = cc->measure((uint8_t)navg, (uint16_t)settle);
     if (!m.ok) { Serial.println("ERR READ_FAIL"); return true; }
-    Serial.printf("MEAS,%.3f,%.3f,%.3f,%.3f,%d,%u,%u\n", m.R, m.G, m.B, m.C,
-                  m.saturated ? 1 : 0, cc->atime(), cc->gain());
+    Serial.printf("MEAS,%.3f,%.3f,%.3f,%.3f,%d,%d\n", m.R, m.G, m.B, m.C, m.saturated ? 1 : 0,
+                  cc->ledLevel());
 
   } else if (!strcmp(cmd, "CLS")) {
     classifyAndPrint();
@@ -95,8 +84,7 @@ bool handle(char* tok[], int n) {
     if (!cc->hasModel()) { Serial.println("ERR NO_MODEL"); return true; }
     float R = strtof(tok[1], nullptr), G = strtof(tok[2], nullptr);
     float B = strtof(tok[3], nullptr), C = strtof(tok[4], nullptr);
-    bool sat = atoi(tok[5]) != 0;
-    printResult(cc->classifyRaw(R, G, B, C, sat), R, G, B, C);
+    printResult(cc->classifyRaw(R, G, B, C, atoi(tok[5]) != 0), R, G, B, C);
 
   } else if (!strcmp(cmd, "MODEL")) {
     if (n < 2) { Serial.println("ERR BAD_ARGS"); return true; }
@@ -106,15 +94,14 @@ bool handle(char* tok[], int n) {
     } else if (!strcmp(tok[1], "CLEAR")) {
       cc->clearModel();
       Serial.println("OK MODEL,cleared");
-    } else if (!strcmp(tok[1], "SET") && n >= 15) {
+    } else if (!strcmp(tok[1], "SET") && n >= 14) {
       colormath::Model m;
       memset(&m, 0, sizeof(m));
       m.magic = colormath::MODEL_MAGIC;
-      m.atime = (uint8_t)strtol(tok[2], nullptr, 0);
-      m.gain = (uint8_t)strtol(tok[3], nullptr, 0);
-      m.navg = (uint8_t)atoi(tok[4]);
-      m.nflush = (uint8_t)atoi(tok[5]);
-      int t = 6;
+      m.led = (uint8_t)atoi(tok[2]);
+      m.navg = (uint8_t)atoi(tok[3]);
+      m.settleMs = (uint16_t)atoi(tok[4]);
+      int t = 5;
       for (int k = 0; k < colormath::NUM_CLASSES; k++) {
         m.cent[k][0] = strtof(tok[t++], nullptr);
         m.cent[k][1] = strtof(tok[t++], nullptr);
@@ -131,7 +118,7 @@ bool handle(char* tok[], int n) {
   } else if (!strcmp(cmd, "RUN")) {
     if (n < 2) { Serial.println("ERR BAD_ARGS"); return true; }
     long ms = atol(tok[1]);
-    runPeriodMs = (ms > 0) ? (uint32_t)(ms < 100 ? 100 : ms) : 0;
+    runPeriodMs = (ms > 0) ? (uint32_t)(ms < 200 ? 200 : ms) : 0;
     Serial.printf("OK RUN %lu\n", (unsigned long)runPeriodMs);
 
   } else {

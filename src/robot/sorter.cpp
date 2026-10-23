@@ -25,7 +25,7 @@ void Sorter::update() {
     case colormath::NO_CAP:  return;                     // khong co nap: tiep tuc cho
     case colormath::GREEN:   bin = Bin::GREEN;  break;
     case colormath::RED:     bin = Bin::RED;    break;
-    case colormath::YELLOW:  bin = Bin::YELLOW; break;
+    case colormath::WHITE:   bin = Bin::WHITE;  break;
     default:                 bin = Bin::REJECT; break;   // UNKNOWN -> khu vuc vut bo
   }
   _count[(int)bin]++;

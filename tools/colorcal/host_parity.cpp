@@ -1,6 +1,6 @@
-// Bien dich ColorMath.h tren PC va phan loai tung dong CSV (khong can ESP32).
+// Bien dich ColorMath.h tren PC va phan loai tung dong (khong can ESP32).
 // Dung boi tools/colorcal/test_host_parity.py de so sanh voi ban Python.
-// stdin: dong 1 = 13 gia tri model (atime gain navg nflush c00 c01 c10 c11 c20 c21 dmax cEmpty cMargin)
+// stdin: dong 1 = 12 gia tri model (led navg settle c00 c01 c10 c11 c20 c21 dmax cEmpty cMargin)
 //        cac dong sau = "R G B C sat"
 // stdout: "<LABEL> <dist>" moi dong.
 #include <cstdio>
@@ -8,10 +8,10 @@
 
 int main() {
   colormath::Model m = {};
-  unsigned at, g, na, nf;
-  if (std::scanf("%u %u %u %u", &at, &g, &na, &nf) != 4) return 1;
+  unsigned led, na, st;
+  if (std::scanf("%u %u %u", &led, &na, &st) != 3) return 1;
   m.magic = colormath::MODEL_MAGIC;
-  m.atime = (uint8_t)at; m.gain = (uint8_t)g; m.navg = (uint8_t)na; m.nflush = (uint8_t)nf;
+  m.led = (uint8_t)led; m.navg = (uint8_t)na; m.settleMs = (uint16_t)st;
   for (int k = 0; k < colormath::NUM_CLASSES; k++)
     if (std::scanf("%f %f", &m.cent[k][0], &m.cent[k][1]) != 2) return 1;
   if (std::scanf("%f %f %f", &m.dmax, &m.cEmpty, &m.cMargin) != 3) return 1;

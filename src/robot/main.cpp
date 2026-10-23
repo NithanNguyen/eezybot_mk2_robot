@@ -2,7 +2,7 @@
 //   pio run -e robot -t upload
 //
 // Serial 115200, moi lenh mot dong:
-//   - Lenh cam bien mau (PING, INFO, CFG, MEAS, CLS, MODEL, ...): xem color_console.h.
+//   - Lenh cam bien mau (PING, INFO, LED, MEAS, CLS, MODEL, ...): xem color_console.h.
 //     tools/colorcal/colorcal.py dung cac lenh nay de hieu chuan -> khong can nap firmware khac.
 //   - AUTO 1 | AUTO 0   bat/tat chu trinh phan loai tu dong (mac dinh tat)
 //   - STATUS            trang thai + so nap da phan loai
@@ -18,9 +18,9 @@
 #include "color_model.h"   // sinh boi: python3 tools/colorcal/colorcal.py train
 #endif
 
-static const char* FW_VERSION = "robot-0.1";
+static const char* FW_VERSION = "robot-0.2";
 
-static ColorClassifier color(pins::COLOR_LED, pins::I2C_SDA, pins::I2C_SCL);
+static ColorClassifier color(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_HZ);
 static Arm arm;
 static Sorter sorter(color, arm);
 
@@ -34,7 +34,7 @@ static void loadFallbackModel() {
   colormath::Model m;
   memset(&m, 0, sizeof(m));
   m.magic = colormath::MODEL_MAGIC;
-  m.atime = CM_ATIME; m.gain = CM_GAIN; m.navg = CM_NAVG; m.nflush = CM_NFLUSH;
+  m.led = CM_LED; m.navg = CM_NAVG; m.settleMs = CM_SETTLE_MS;
   const float cent[3][2] = CM_CENT;
   memcpy(m.cent, cent, sizeof(cent));
   m.dmax = CM_DMAX; m.cEmpty = CM_C_EMPTY; m.cMargin = CM_C_MARGIN;
@@ -59,11 +59,11 @@ static void handleLine(char* line) {
   if (!strcmp(tok[0], "AUTO") && n >= 2) {
     sorter.setAuto(atoi(tok[1]) != 0);
   } else if (!strcmp(tok[0], "STATUS")) {
-    Serial.printf("STATUS,fw=%s,auto=%d,sensor=%d,model=%s,green=%lu,red=%lu,yellow=%lu,reject=%lu\n",
+    Serial.printf("STATUS,fw=%s,auto=%d,sensor=%d,model=%s,green=%lu,red=%lu,white=%lu,reject=%lu\n",
                   FW_VERSION, sorter.isAuto() ? 1 : 0, color.sensorOk() ? 1 : 0,
                   color.hasModel() ? color.modelSource() : "none",
                   (unsigned long)sorter.count(Bin::GREEN), (unsigned long)sorter.count(Bin::RED),
-                  (unsigned long)sorter.count(Bin::YELLOW), (unsigned long)sorter.count(Bin::REJECT));
+                  (unsigned long)sorter.count(Bin::WHITE), (unsigned long)sorter.count(Bin::REJECT));
   } else {
     Serial.println("ERR UNKNOWN_CMD");
   }
@@ -79,7 +79,7 @@ void setup() {
 
   Serial.printf("# READY %s sensor=%d model=%s\n", FW_VERSION, ok ? 1 : 0,
                 color.hasModel() ? color.modelSource() : "none");
-  if (!ok) Serial.println("# ERR TCS34725 khong phan hoi tai 0x29 - kiem tra day SDA/SCL/VIN/GND");
+  if (!ok) Serial.println("# ERR GY-33 khong phan hoi tai 0x5A - kiem tra day DR/CT/VCC/GND va jumper S0-G");
   if (!color.hasModel()) Serial.println("# chua co model mau - chay: python3 tools/colorcal/colorcal.py wizard");
 }
 
