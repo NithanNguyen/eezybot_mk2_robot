@@ -1,0 +1,101 @@
+{
+  "set": "test",
+  "created": "2026-10-23T14:59:52",
+  "rows": [
+    "green",
+    "red",
+    "white",
+    "empty",
+    "other"
+  ],
+  "matrix": [
+    [
+      20,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      19,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      20,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      20
+    ],
+    [
+      0,
+      0,
+      0,
+      20,
+      0
+    ]
+  ],
+  "metrics": {
+    "n": 100,
+    "per_label": {
+      "green": {
+        "n": 20,
+        "correct": 20,
+        "rejected": 0,
+        "no_cap": 0,
+        "wrong_color": 0
+      },
+      "red": {
+        "n": 20,
+        "correct": 19,
+        "rejected": 1,
+        "no_cap": 0,
+        "wrong_color": 0
+      },
+      "white": {
+        "n": 20,
+        "correct": 20,
+        "rejected": 0,
+        "no_cap": 0,
+        "wrong_color": 0
+      },
+      "empty": {
+        "n": 20,
+        "correct": 20,
+        "rejected": 0,
+        "no_cap": 0,
+        "wrong_color": 0
+      },
+      "other": {
+        "n": 20,
+        "correct": 20,
+        "rejected": 0,
+        "no_cap": 0,
+        "wrong_color": 0
+      }
+    },
+    "correct": 99,
+    "accuracy": 0.99,
+    "wrong_color": 0
+  },
+  "accuracy_ci95": [
+    0.9455124752390653,
+    0.9982326134344526
+  ],
+  "simulated": false,
+  "parity": {
+    "checked": 100,
+    "mismatch": 0,
+    "examples": []
+  }
+}
