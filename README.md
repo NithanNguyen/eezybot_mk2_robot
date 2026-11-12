@@ -3,8 +3,9 @@
 Firmware ESP32 cho tay máy EEZYbotARM Mk2 (3-DOF) phân loại nắp chai theo màu **xanh lá / đỏ / trắng** – đồ án CE212.
 Phần cứng: ESP32 NodeMCU-32S, 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
 
-> Điều khiển tay máy (Home, FK/IK, nối quỹ đạo vào servo) **chưa có**: `src/robot/arm.*` hiện chỉ là khung và chưa phát xung servo.
-> Bộ sinh double-S 1 chiều `lib/Trajectory/DoubleS1D.h` đã có và đã kiểm thử trên PC so với Ruckig, nhưng chưa được `arm.cpp` dùng.
+> Điều khiển tay máy (Home, nối quỹ đạo vào servo) **chưa có**: `src/robot/arm.*` hiện chỉ là khung và chưa phát xung servo.
+> Đã có và đã kiểm thử trên PC, nhưng chưa được `arm.cpp` dùng: bộ sinh double-S `lib/Trajectory/DoubleS1D.h` (so với Ruckig)
+> và động học `lib/Kinematics/Mk2Kinematics.h` (so với `mk2_kinematics.py` của mô phỏng).
 
 ## Cấu trúc
 
@@ -20,10 +21,13 @@ lib/
   ServoPwm/           xung servo 50 Hz (LEDC)
   Trajectory/         DoubleS1D.h: double-S 1 chiều nghỉ → nghỉ (float, giải tích), dùng chung cho
                       đường thẳng (s → IK) và chuyển động khớp (σ: 0 → 1)
+  Kinematics/         Mk2Kinematics.h: FK, IK giải tích, kiểm tra giới hạn, Jacobian, ánh xạ góc servo
+                      (float, tham số từ include/arm_config.h)
 src/robot/            firmware chính
 src/servo_center/     xung 1500 µs cho 4 servo, dùng trước khi lắp horn
 tools/colorcal/       công cụ Python hiệu chuẩn màu
 tools/trajectory/     kiểm thử DoubleS1D trên PC so với Ruckig (eezybot_mk2_sim/trajectories.ruckig_1d)
+tools/kinematics/     kiểm thử Mk2Kinematics trên PC so với eezybot_mk2_sim/mk2_kinematics.py
 data/color/, reports/color/   dữ liệu và báo cáo hiệu chuẩn
 ```
 
@@ -63,7 +67,7 @@ Muốn chạy thử không cần phần cứng, thêm `--sim --yes --ws /tmp/sim
 
 Sau khi hiệu chuẩn xong, mở Serial Monitor (115200 baud). Gửi `AUTO 1` để bật chu trình phân loại, `AUTO 0` để tắt, `STATUS` để xem số nắp đã phân loại.
 
-### Kiểm thử bộ sinh quỹ đạo trên PC
+### Kiểm thử bộ sinh quỹ đạo và động học trên PC
 
 Cần `g++` và repo [eezybot_mk2_sim](https://github.com/NithanNguyen/eezybot_mk2_sim) clone cạnh repo này.
 
@@ -73,6 +77,12 @@ python3 tools/trajectory/test_doubles_parity.py              # hoặc --sim <đ�
 ```
 
 Script biên dịch `tools/trajectory/host_doubles.cpp` (kèm `-Wdouble-promotion -Werror` để chặn phép tính `double`). Sau đó nó so từng mẫu s(t), v(t), a(t) và thời gian T với Ruckig trên 2029 ca: đường thẳng thật của chu trình, chuyển động khớp σ, 2000 ca ngẫu nhiên phủ cả 4 trường hợp (đạt hoặc không đạt v_max, a_max) và các ca biên. Kết quả đạt khi dòng cuối kết thúc bằng `0 khac biet.` và mã thoát là 0.
+
+```bash
+python3 tools/kinematics/test_kinematics_parity.py           # chỉ cần numpy; hoặc --sim <đường dẫn>
+```
+
+Script này kiểm tra trước rằng các hằng số động học trong `include/arm_config.h` trùng `params.py`. Nếu không trùng, cần chạy lại `tools/export_arm_config.py` của mô phỏng. Sau đó nó so `Mk2Kinematics.h` (float) với `mk2_kinematics.py` (double) trên khoảng 180 000 lệnh: FK, Jacobian, ánh xạ servo hai chiều, `withinLimits` và IK. Phần IK gồm điểm lấy từ FK, điểm ngẫu nhiên (nhiều điểm ngoài tầm với), điểm sát trục đế và 7 điểm của chu trình. Với IK, script so cả trạng thái (OK, NEAR_AXIS, OUT_OF_REACH hay giới hạn nào bị vi phạm) lẫn góc. Ca nằm sát ngưỡng giới hạn (dưới 0,002°) không so trạng thái vì làm tròn float có thể lật kết quả so sánh, nhưng vẫn được đếm và in ra.
 
 ## Phân loại màu
 
