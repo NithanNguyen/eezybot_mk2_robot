@@ -116,6 +116,12 @@ python3 tools/motion/test_motion_parity.py                  # g++ có -pthread; 
 
 Script so lệnh của firmware **từng nhịp 20 ms** với `eezybot_mk2_sim/results/sort/log.csv` (11 chu trình gồm cả 4 đích): số nhịp và tên pha phải trùng, góc 3 servo và góc kẹp lệch ≤ 0,005° (nhỏ hơn 1 bước LEDC 16 bit ≈ 0,0275°), vận tốc kẹp ≤ 150 mm/s. Nguồn [1] chỉ chạy `lib/Motion/ArmMotion.h`; nguồn [2] chạy chính `src/robot/arm.cpp` (task, hàng đợi, lệnh `ARM`, đường in Serial) với stub FreeRTOS trong `tools/motion/stub`.
 
+Mọi chương trình kiểm thử trên PC include `tools/host_compat/arduino_macro_trap.h` sau header hệ thống và trước `lib/`. File này định nghĩa lại 383 macro của Arduino-ESP32 (`cores/esp32/*.h`) và newlib `<ctype.h>` (`_U _L _N _S _P _C _X _B`) thành hằng số. Nếu code trong `lib/` đặt tên trùng một macro, PC báo lỗi giống ESP32, ví dụ biến `_L` trùng macro `_L` của newlib. Khi đổi phiên bản Arduino-ESP32, sinh lại bẫy từ framework đã cài:
+
+```bash
+python3 tools/host_compat/gen_macro_trap.py ~/.platformio/packages/framework-arduinoespressif32/cores/esp32
+```
+
 ## Phân loại màu
 
 - Mỗi phép đo chờ 300 ms, sau đó lấy trung bình 5 lần đọc RGBC thô từ thanh ghi 0x00–0x07, cách nhau 120 ms.

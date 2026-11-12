@@ -6,6 +6,8 @@
 //         Dong mau: "pos vel acc jrk".
 #include <cmath>
 #include <cstdio>
+#include <math.h>
+#include "../host_compat/arduino_macro_trap.h"  // sau header he thong, truoc lib/: bat ten trung macro Arduino-ESP32
 #include "../../lib/Trajectory/DoubleS1D.h"
 
 int main() {

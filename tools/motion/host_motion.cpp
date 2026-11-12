@@ -7,6 +7,9 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <math.h>
+#include <stdint.h>
+#include "../host_compat/arduino_macro_trap.h"  // sau header he thong, truoc lib/: bat ten trung macro Arduino-ESP32
 #include "../../lib/Motion/ArmMotion.h"
 
 int main() {

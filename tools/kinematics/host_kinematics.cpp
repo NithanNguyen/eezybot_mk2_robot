@@ -9,6 +9,8 @@
 //   JAC tool th1 th2 phi      -> 9 so, theo hang
 #include <cstdio>
 #include <cstring>
+#include <math.h>
+#include "../host_compat/arduino_macro_trap.h"  // sau header he thong, truoc lib/: bat ten trung macro Arduino-ESP32
 #include "../../lib/Kinematics/Mk2Kinematics.h"
 
 using namespace mk2kin;

@@ -63,11 +63,11 @@ class DoubleS1D {
     _tv = tv;
     _alim = jmax * tj;
     _vlim = (ta - tj) * _alim;
-    _T = 2.0f * ta + tv;
+    _dur = 2.0f * ta + tv;
     return true;
   }
 
-  float duration() const { return _T; }   // s
+  float duration() const { return _dur; }   // s
   float vlim() const { return _sign * _vlim; }
   float alim() const { return _sign * _alim; }
   float distance() const { return _sign * _h; }
@@ -79,8 +79,8 @@ class DoubleS1D {
   // Mau tai thoi diem t (s). t < 0 -> trang thai dau, t > T -> trang thai cuoi.
   Sample at(float t) const {
     Sample s = {0.0f, 0.0f, 0.0f, 0.0f};
-    if (_T <= 0.0f) return s;
-    if (t >= _T) {
+    if (_dur <= 0.0f) return s;
+    if (t >= _dur) {
       s.pos = _sign * _h;
       return s;
     }
@@ -95,7 +95,7 @@ class DoubleS1D {
     } else {
       // pha giam toc = guong cua pha tang toc qua thoi diem T: s(t) = h - f(T - t)
       // => v = f'(T - t), a = -f''(T - t), jerk = f'''(T - t)
-      const Sample m = accelPhase(_T - t);
+      const Sample m = accelPhase(_dur - t);
       s.pos = _h - m.pos;
       s.vel = m.vel;
       s.acc = -m.acc;
@@ -135,6 +135,6 @@ class DoubleS1D {
   }
 
   float _h = 0.0f, _sign = 1.0f, _j = 0.0f;
-  float _tj = 0.0f, _ta = 0.0f, _tv = 0.0f, _T = 0.0f;
+  float _tj = 0.0f, _ta = 0.0f, _tv = 0.0f, _dur = 0.0f;
   float _alim = 0.0f, _vlim = 0.0f;
 };

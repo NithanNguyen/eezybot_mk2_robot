@@ -19,3 +19,10 @@ struct HostSerial {
   }
 };
 extern HostSerial Serial;
+// Nhu Arduino.h that: cac macro cua Arduino-ESP32 + newlib <ctype.h> co hieu luc voi moi thu include sau.
+#include <ctype.h>
+#include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../../host_compat/arduino_macro_trap.h"

@@ -156,8 +156,8 @@ class LineMove {
     _d.y = p1.y - p0.y;
     _d.z = p1.z - p0.z;
     _tool = tool;
-    _L = sqrtf(_d.x * _d.x + _d.y * _d.y + _d.z * _d.z);
-    _prof.plan(_L, armcfg::V_MAX, armcfg::A_MAX, armcfg::J_MAX);
+    _len = sqrtf(_d.x * _d.x + _d.y * _d.y + _d.z * _d.z);
+    _prof.plan(_len, armcfg::V_MAX, armcfg::A_MAX, armcfg::J_MAX);
     _n = ticksFor(_prof.duration());
   }
 
@@ -166,7 +166,7 @@ class LineMove {
 
   // Mau thu i (1..n): IK cua diem tren doan thang. Tra ve trang thai IK (kem kiem tra gioi han).
   Status at(int i, Joint& q) const {
-    const float u = (_L > 0.0f) ? _prof.at((float)i * DT).pos / _L : 1.0f;
+    const float u = (_len > 0.0f) ? _prof.at((float)i * DT).pos / _len : 1.0f;
     const Vec3 p = {_p0.x + _d.x * u, _p0.y + _d.y * u, _p0.z + _d.z * u};
     return mk2kin::ik(p, _tool, q);
   }
@@ -174,7 +174,7 @@ class LineMove {
  private:
   Vec3 _p0 = {0, 0, 0}, _d = {0, 0, 0};
   Tool _tool = {0, 0, 0};
-  float _L = 0.0f;
+  float _len = 0.0f;
   DoubleS1D _prof;
   int _n = 1;
 };
