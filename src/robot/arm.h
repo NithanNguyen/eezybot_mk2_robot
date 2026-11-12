@@ -1,6 +1,6 @@
 // arm.h - giao dien dieu khien tay may. HIEN LA KHUNG:
 // chua phat xung servo (ARM_OUTPUT_ENABLED = 0) cho toi khi co Home, FK/IK va quy dao.
-// Thong so dong hoc / quy dao theo de cuong: include/arm_config.h.
+// Thong so dong hoc / quy dao: include/arm_config.h (sinh tu eezybot_mk2_sim/params.py, khong sua tay).
 #pragma once
 #include <Arduino.h>
 

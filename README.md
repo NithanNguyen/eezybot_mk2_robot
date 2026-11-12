@@ -11,7 +11,8 @@ Phần cứng: ESP32 NodeMCU-32S, 3 × MG996R, SG90, cảm biến màu GY-33 (TC
 platformio.ini        env robot (mặc định) và servo_center
 include/
   board_pins.h        phân bổ chân
-  arm_config.h        thông số động học, giới hạn khớp, giới hạn quỹ đạo (theo đề cương)
+  arm_config.h        SINH TỰ ĐỘNG từ eezybot_mk2_sim/params.py (tools/export_arm_config.py): hình học,
+                      giới hạn khớp, ánh xạ servo, giới hạn quỹ đạo, các điểm của chu trình. Không sửa tay
 lib/
   GY33/               driver GY-33, chế độ MCU_IIC (0x5A)
   ColorClassifier/    phân loại màu, lưu model trong NVS
