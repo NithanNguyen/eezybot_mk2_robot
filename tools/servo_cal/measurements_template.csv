@@ -1,0 +1,8 @@
+# Mau so do hieu chuan servo (docs/hieu_chuan_servo.md). Dong bat dau bang # bi bo qua.
+# joint: base|shoulder|elbow|gripper. us: xung (STATUS/AT). method: chord|cos|sin|gap|deg. value: mm (hoac do).
+# radius: chi cho chord (mm, truc de -> vet danh dau). Moi khop >= 3 muc xung, nen 5.
+joint,us,method,value,radius
+base,1500,chord,0,
+shoulder,1500,cos,,
+elbow,1500,sin,,
+gripper,1500,gap,,

@@ -27,10 +27,14 @@ lib/
                       thẳng (s → IK) và bộ tuần tự chu trình phân loại, giống eezybot_mk2_sim/run_sort.py
 src/robot/            firmware chính
 src/servo_center/     xung 1500 µs cho 4 servo, dùng trước khi lắp horn
+src/calib/            hiệu chuẩn servo: điều khiển từng kênh bằng xung, đổi xung từ từ (docs/hieu_chuan_servo.md)
 tools/colorcal/       công cụ Python hiệu chuẩn màu
 tools/trajectory/     kiểm thử DoubleS1D trên PC so với Ruckig (eezybot_mk2_sim/trajectories.ruckig_1d)
 tools/kinematics/     kiểm thử Mk2Kinematics trên PC so với eezybot_mk2_sim/mk2_kinematics.py
 tools/motion/         kiểm thử ArmMotion.h và arm.cpp (stub FreeRTOS) từng nhịp so với log.csv của mô phỏng
+tools/servo_cal/      tính hiệu chuẩn servo từ số đo bằng thước; kiểm thử logic firmware calib trên PC
+tools/host_compat/    bẫy macro Arduino-ESP32 cho các bản biên dịch trên PC
+docs/                 quy trình hiệu chuẩn servo
 data/color/, reports/color/   dữ liệu và báo cáo hiệu chuẩn
 ```
 
@@ -51,6 +55,7 @@ Trên GY-33, nối jumper **S0–G** để chọn chế độ MCU_IIC; để h�
 pip3 install -r tools/colorcal/requirements.txt
 pio run -e servo_center -t upload        # 1. căn giữa servo trước khi lắp horn
 pio run -e robot -t upload               # 2. nạp firmware chính
+pio run -e calib -t upload               #    hiệu chuẩn servo trước khi phát xung: docs/hieu_chuan_servo.md
 python3 tools/colorcal/colorcal.py wizard   # 3. hiệu chuẩn màu (đóng Serial Monitor trước)
 ```
 

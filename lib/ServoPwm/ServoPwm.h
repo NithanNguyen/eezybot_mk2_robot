@@ -14,6 +14,7 @@ class ServoPwm {
   // minUs/maxUs: gioi han phan mem; writeUs() kep gia tri vao khoang nay.
   void attach(uint8_t pin, uint8_t channel, uint16_t minUs = 500, uint16_t maxUs = 2500);
   void writeUs(uint32_t us);
+  void off();                 // ngung phat xung (duty 0): servo khong nhan lenh nao
   uint32_t lastUs() const { return _lastUs; }
   uint8_t pin() const { return _pin; }
 

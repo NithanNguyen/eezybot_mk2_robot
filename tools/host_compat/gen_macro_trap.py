@@ -17,6 +17,9 @@ import sys
 NEWLIB_CTYPE = ["_U", "_L", "_N", "_S", "_P", "_C", "_X", "_B"]
 # Macro tro toi doi tuong that ma firmware DUNG co chu y (khong phai trung ten): khong bay.
 USED_ON_PURPOSE = {"Serial"}
+# Macro phien ban / cau hinh dung trong #if de chon nhanh code (vd. ServoPwm chon API LEDC theo
+# ESP_ARDUINO_VERSION_MAJOR): khong phai ten co the trung, va bay chung se doi nhanh duoc bien dich tren PC.
+CONFIG_PREFIXES = ("ESP_ARDUINO_VERSION", "ESP_IDF_VERSION", "CONFIG_")
 
 
 def main():
@@ -28,7 +31,7 @@ def main():
             m = re.match(r"\s*#\s*define\s+([A-Za-z_]\w*)(\()?", line)
             if m:
                 (fn if m.group(2) else obj).add(m.group(1))
-    guard = lambda n: n.startswith("__") or n.endswith(("_h", "_H", "_H_"))
+    guard = lambda n: n.startswith("__") or n.endswith(("_h", "_H", "_H_")) or n.startswith(CONFIG_PREFIXES)
     obj = {n for n in obj if not guard(n)} - set(NEWLIB_CTYPE) - USED_ON_PURPOSE
     fn = {n for n in fn if not guard(n)} - obj - USED_ON_PURPOSE
     out = ["// SINH TU DONG boi tools/host_compat/gen_macro_trap.py tu Arduino-ESP32 cores/esp32 (commit {}).".format(commit),

@@ -24,3 +24,13 @@ void ServoPwm::writeUs(uint32_t us) {
   ledcWrite(_channel, usToDuty(us));
 #endif
 }
+
+void ServoPwm::off() {
+  if (_pin == 255) return;
+  _lastUs = 0;
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 3)
+  ledcWrite(_pin, 0);
+#else
+  ledcWrite(_channel, 0);
+#endif
+}
