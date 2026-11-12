@@ -1,0 +1,2 @@
+numpy>=1.17
+ruckig>=0.12.2       # da kiem tra voi 0.12.2 (ban eezybot_mk2_sim/requirements.txt ghim)

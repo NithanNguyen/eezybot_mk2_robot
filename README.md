@@ -3,7 +3,8 @@
 Firmware ESP32 cho tay máy EEZYbotARM Mk2 (3-DOF) phân loại nắp chai theo màu **xanh lá / đỏ / trắng** – đồ án CE212.
 Phần cứng: ESP32 NodeMCU-32S, 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
 
-> Điều khiển tay máy (Home, FK/IK, quỹ đạo double-S) **chưa có**: `src/robot/arm.*` hiện chỉ là khung và chưa phát xung servo.
+> Điều khiển tay máy (Home, FK/IK, nối quỹ đạo vào servo) **chưa có**: `src/robot/arm.*` hiện chỉ là khung và chưa phát xung servo.
+> Bộ sinh double-S 1 chiều `lib/Trajectory/DoubleS1D.h` đã có và đã kiểm thử trên PC so với Ruckig, nhưng chưa được `arm.cpp` dùng.
 
 ## Cấu trúc
 
@@ -17,9 +18,12 @@ lib/
   GY33/               driver GY-33, chế độ MCU_IIC (0x5A)
   ColorClassifier/    phân loại màu, lưu model trong NVS
   ServoPwm/           xung servo 50 Hz (LEDC)
+  Trajectory/         DoubleS1D.h: double-S 1 chiều nghỉ → nghỉ (float, giải tích), dùng chung cho
+                      đường thẳng (s → IK) và chuyển động khớp (σ: 0 → 1)
 src/robot/            firmware chính
 src/servo_center/     xung 1500 µs cho 4 servo, dùng trước khi lắp horn
 tools/colorcal/       công cụ Python hiệu chuẩn màu
+tools/trajectory/     kiểm thử DoubleS1D trên PC so với Ruckig (eezybot_mk2_sim/trajectories.ruckig_1d)
 data/color/, reports/color/   dữ liệu và báo cáo hiệu chuẩn
 ```
 
@@ -58,6 +62,17 @@ Kết quả: `reports/color/report.md` và `include/color_model.h`. Nên commit 
 Muốn chạy thử không cần phần cứng, thêm `--sim --yes --ws /tmp/sim`. Số liệu khi đó là giả lập.
 
 Sau khi hiệu chuẩn xong, mở Serial Monitor (115200 baud). Gửi `AUTO 1` để bật chu trình phân loại, `AUTO 0` để tắt, `STATUS` để xem số nắp đã phân loại.
+
+### Kiểm thử bộ sinh quỹ đạo trên PC
+
+Cần `g++` và repo [eezybot_mk2_sim](https://github.com/NithanNguyen/eezybot_mk2_sim) clone cạnh repo này.
+
+```bash
+pip3 install -r tools/trajectory/requirements.txt
+python3 tools/trajectory/test_doubles_parity.py              # hoặc --sim <đường dẫn eezybot_mk2_sim>
+```
+
+Script biên dịch `tools/trajectory/host_doubles.cpp` (kèm `-Wdouble-promotion -Werror` để chặn phép tính `double`). Sau đó nó so từng mẫu s(t), v(t), a(t) và thời gian T với Ruckig trên 2029 ca: đường thẳng thật của chu trình, chuyển động khớp σ, 2000 ca ngẫu nhiên phủ cả 4 trường hợp (đạt hoặc không đạt v_max, a_max) và các ca biên. Kết quả đạt khi dòng cuối kết thúc bằng `0 khac biet.` và mã thoát là 0.
 
 ## Phân loại màu
 
