@@ -3,9 +3,9 @@
 Firmware ESP32 cho tay máy EEZYbotARM Mk2 (3-DOF) phân loại nắp chai theo màu **xanh lá / đỏ / trắng** – đồ án CE212.
 Phần cứng: ESP32 NodeMCU-32S, 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
 
-> Điều khiển tay máy (Home, nối quỹ đạo vào servo) **chưa có**: `src/robot/arm.*` hiện chỉ là khung và chưa phát xung servo.
-> Đã có và đã kiểm thử trên PC, nhưng chưa được `arm.cpp` dùng: bộ sinh double-S `lib/Trajectory/DoubleS1D.h` (so với Ruckig)
-> và động học `lib/Kinematics/Mk2Kinematics.h` (so với `mk2_kinematics.py` của mô phỏng).
+> Tay máy đang ở chế độ **chạy khô**: `src/robot/arm.cpp` tính đủ góc lệnh mỗi nhịp 20 ms (double-S + IK, khớp
+> từng nhịp với mô phỏng) nhưng **chưa phát xung servo**. Phát xung cần hiệu chuẩn góc servo → độ rộng xung trước
+> (`ARM_OUTPUT_ENABLED=1` hiện báo lỗi biên dịch có chủ ý).
 
 ## Cấu trúc
 
@@ -23,11 +23,14 @@ lib/
                       đường thẳng (s → IK) và chuyển động khớp (σ: 0 → 1)
   Kinematics/         Mk2Kinematics.h: FK, IK giải tích, kiểm tra giới hạn, Jacobian, ánh xạ góc servo
                       (float, tham số từ include/arm_config.h)
+  Motion/             ArmMotion.h: đoạn khớp (σ đồng bộ pha + giãn thời gian theo v, a, j của kẹp), đoạn
+                      thẳng (s → IK) và bộ tuần tự chu trình phân loại, giống eezybot_mk2_sim/run_sort.py
 src/robot/            firmware chính
 src/servo_center/     xung 1500 µs cho 4 servo, dùng trước khi lắp horn
 tools/colorcal/       công cụ Python hiệu chuẩn màu
 tools/trajectory/     kiểm thử DoubleS1D trên PC so với Ruckig (eezybot_mk2_sim/trajectories.ruckig_1d)
 tools/kinematics/     kiểm thử Mk2Kinematics trên PC so với eezybot_mk2_sim/mk2_kinematics.py
+tools/motion/         kiểm thử ArmMotion.h và arm.cpp (stub FreeRTOS) từng nhịp so với log.csv của mô phỏng
 data/color/, reports/color/   dữ liệu và báo cáo hiệu chuẩn
 ```
 
@@ -67,7 +70,30 @@ Muốn chạy thử không cần phần cứng, thêm `--sim --yes --ws /tmp/sim
 
 Sau khi hiệu chuẩn xong, mở Serial Monitor (115200 baud). Gửi `AUTO 1` để bật chu trình phân loại, `AUTO 0` để tắt, `STATUS` để xem số nắp đã phân loại.
 
-### Kiểm thử bộ sinh quỹ đạo và động học trên PC
+### Tay máy: lệnh Serial và chạy khô
+
+Firmware chạy một task FreeRTOS chu kỳ 20 ms (ưu tiên 3, cùng lõi với `loop()`), nhận yêu cầu qua hàng đợi và tính lệnh mỗi nhịp. Lúc khởi động firmware **coi tay đang ở Home** (θ₁ = 0°, θ₂ = 90°, φ = 0°; servo 90/90/90) vì servo không có phản hồi vị trí.
+
+| Lệnh | Tác dụng |
+|---|---|
+| `ARM SORT <GREEN\|RED\|WHITE\|REJECT>` | chạy một chu trình gắp → thả → về Home, không cần cảm biến |
+| `ARM HOME` | về Home rồi mở kẹp |
+| `ARM TRACE 1` / `ARM TRACE 0` | in / tắt mỗi nhịp `CMD,<nhịp>,<pha>,<servo0>,<servo1>,<servo2>,<kẹp>` (độ) |
+| `ARM TIMING` / `ARM TIMING RESET` | thời gian tính mỗi nhịp (lớn nhất, trung bình), độ lệch nhịp 20 ms lớn nhất, số nhịp trễ, số dòng trace bị mất |
+| `ARM STATUS` | bận hay rảnh, pha, góc lệnh hiện tại |
+
+Kết thúc mỗi chu trình firmware in `ARM DONE <tên> status=<OK|lỗi> ticks=<n> cmax_us=<µs> dropped=<n>`.
+
+Chạy khô trên ESP32 chỉ cần USB, **không cần bật nguồn servo** (S1 tắt). Đóng Serial Monitor rồi chạy:
+
+```bash
+pip3 install -r tools/colorcal/requirements.txt     # pyserial
+python3 tools/motion/test_motion_parity.py --port /dev/ttyUSB0
+```
+
+Script gửi `ARM SORT` cho 4 đích, ghi trace vào `esp32_trace.txt`, so từng nhịp với `log.csv` của mô phỏng và in `ARM TIMING` đo trên ESP32. Có thể ghi trace bằng tay rồi so: `--trace <file>`.
+
+### Kiểm thử bộ sinh quỹ đạo, động học và chuyển động trên PC
 
 Cần `g++` và repo [eezybot_mk2_sim](https://github.com/NithanNguyen/eezybot_mk2_sim) clone cạnh repo này.
 
@@ -83,6 +109,12 @@ python3 tools/kinematics/test_kinematics_parity.py           # chỉ cần numpy
 ```
 
 Script này kiểm tra trước rằng các hằng số động học trong `include/arm_config.h` trùng `params.py`. Nếu không trùng, cần chạy lại `tools/export_arm_config.py` của mô phỏng. Sau đó nó so `Mk2Kinematics.h` (float) với `mk2_kinematics.py` (double) trên khoảng 180 000 lệnh: FK, Jacobian, ánh xạ servo hai chiều, `withinLimits` và IK. Phần IK gồm điểm lấy từ FK, điểm ngẫu nhiên (nhiều điểm ngoài tầm với), điểm sát trục đế và 7 điểm của chu trình. Với IK, script so cả trạng thái (OK, NEAR_AXIS, OUT_OF_REACH hay giới hạn nào bị vi phạm) lẫn góc. Ca nằm sát ngưỡng giới hạn (dưới 0,002°) không so trạng thái vì làm tròn float có thể lật kết quả so sánh, nhưng vẫn được đếm và in ra.
+
+```bash
+python3 tools/motion/test_motion_parity.py                  # g++ có -pthread; hoặc --sim <đường dẫn>
+```
+
+Script so lệnh của firmware **từng nhịp 20 ms** với `eezybot_mk2_sim/results/sort/log.csv` (11 chu trình gồm cả 4 đích): số nhịp và tên pha phải trùng, góc 3 servo và góc kẹp lệch ≤ 0,005° (nhỏ hơn 1 bước LEDC 16 bit ≈ 0,0275°), vận tốc kẹp ≤ 150 mm/s. Nguồn [1] chỉ chạy `lib/Motion/ArmMotion.h`; nguồn [2] chạy chính `src/robot/arm.cpp` (task, hàng đợi, lệnh `ARM`, đường in Serial) với stub FreeRTOS trong `tools/motion/stub`.
 
 ## Phân loại màu
 

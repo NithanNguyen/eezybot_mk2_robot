@@ -6,6 +6,7 @@
 //     tools/colorcal/colorcal.py dung cac lenh nay de hieu chuan -> khong can nap firmware khac.
 //   - AUTO 1 | AUTO 0   bat/tat chu trinh phan loai tu dong (mac dinh tat)
 //   - STATUS            trang thai + so nap da phan loai
+//   - ARM ...           lenh tay may (SORT, HOME, TRACE, TIMING, STATUS): xem arm.h
 #include <Arduino.h>
 #include <string.h>
 #include "board_pins.h"
@@ -18,7 +19,7 @@
 #include "color_model.h"   // sinh boi: python3 tools/colorcal/colorcal.py train
 #endif
 
-static const char* FW_VERSION = "robot-0.2";
+static const char* FW_VERSION = "robot-0.3";
 
 static ColorClassifier color(pins::I2C_SDA, pins::I2C_SCL, pins::I2C_HZ);
 static Arm arm;
@@ -55,6 +56,7 @@ static void handleLine(char* line) {
   for (char* c = tok[0]; *c; c++) *c = toupper(*c);
 
   if (color_console::handle(tok, n)) return;
+  if (arm.handleCommand(tok, n)) return;
 
   if (!strcmp(tok[0], "AUTO") && n >= 2) {
     sorter.setAuto(atoi(tok[1]) != 0);
@@ -97,4 +99,5 @@ void loop() {
   }
   color_console::update();
   sorter.update();
+  arm.update();
 }

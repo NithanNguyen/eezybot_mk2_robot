@@ -21,7 +21,7 @@
 class DoubleS1D {
  public:
   struct Sample {
-    float pos, vel, acc;
+    float pos, vel, acc, jrk;  // jrk: +-jmax hoac 0 (gian doan tai moc pha; gia tri ben trong pha chua t)
   };
 
   // Lap ke hoach cho quang duong co dau h (don vi tuy y) voi gioi han vmax, amax, jmax > 0.
@@ -71,10 +71,14 @@ class DoubleS1D {
   float vlim() const { return _sign * _vlim; }
   float alim() const { return _sign * _alim; }
   float distance() const { return _sign * _h; }
+  // Moc pha (s): jerk doi gia tri tai Tj, Ta - Tj, Ta, Ta + Tv, T - Ta + Tj, T - Tj.
+  float tj() const { return _tj; }
+  float ta() const { return _ta; }
+  float tv() const { return _tv; }
 
   // Mau tai thoi diem t (s). t < 0 -> trang thai dau, t > T -> trang thai cuoi.
   Sample at(float t) const {
-    Sample s = {0.0f, 0.0f, 0.0f};
+    Sample s = {0.0f, 0.0f, 0.0f, 0.0f};
     if (_T <= 0.0f) return s;
     if (t >= _T) {
       s.pos = _sign * _h;
@@ -87,16 +91,20 @@ class DoubleS1D {
       s.pos = 0.5f * _vlim * _ta + _vlim * (t - _ta);
       s.vel = _vlim;
       s.acc = 0.0f;
+      s.jrk = 0.0f;
     } else {
-      // pha giam toc = guong cua pha tang toc qua thoi diem T
+      // pha giam toc = guong cua pha tang toc qua thoi diem T: s(t) = h - f(T - t)
+      // => v = f'(T - t), a = -f''(T - t), jerk = f'''(T - t)
       const Sample m = accelPhase(_T - t);
       s.pos = _h - m.pos;
       s.vel = m.vel;
       s.acc = -m.acc;
+      s.jrk = m.jrk;
     }
     s.pos *= _sign;
     s.vel *= _sign;
     s.acc *= _sign;
+    s.jrk *= _sign;
     return s;
   }
 
@@ -110,15 +118,18 @@ class DoubleS1D {
       s.pos = _j * t * t * t / 6.0f;
       s.vel = 0.5f * _j * t * t;
       s.acc = _j * t;
+      s.jrk = _j;
     } else if (t < _ta - _tj) {          // gia toc khong doi alim
       s.pos = _alim / 6.0f * (3.0f * t * t - 3.0f * _tj * t + _tj * _tj);
       s.vel = _alim * (t - 0.5f * _tj);
       s.acc = _alim;
+      s.jrk = 0.0f;
     } else {                             // jerk -J
       const float r = _ta - t;
       s.pos = 0.5f * _vlim * _ta - _vlim * r + _j * r * r * r / 6.0f;
       s.vel = _vlim - 0.5f * _j * r * r;
       s.acc = _j * r;
+      s.jrk = -_j;
     }
     return s;
   }

@@ -10,6 +10,8 @@ So tung mau tai t_k = k*dt (k = 1..n, giong vong update cua Ruckig):
   vi tri s(t)  : voi trajectories.ruckig_1d()         (dung ham mo phong dung cho duong thang)
   v(t), a(t)   : voi vong Ruckig 1 chieu cung tham so  (ruckig_1d chi tra vi tri)
   thoi gian T va so mau n.
+  jerk(t)      : gia toc Ruckig tuyen tinh tung khuc nen jerk tham chieu = do doc gia toc hai ben t_k
+                 (lech 1e-5 s); bo qua mau sat moc pha (doc trai != doc phai). Lay toi 200 mau deu moi ca.
 Bo ca:
   [duong thang] quang duong thuc te cua chu trinh voi 150 mm/s, 1500 mm/s^2, 30000 mm/s^3
   [khop sigma ] sigma 0 -> 1 voi gioi han (JV, JA, JJ)/|dq| va gian thoi gian k (nhu run_sort.joint_move)
@@ -37,7 +39,8 @@ TOL_S, TOL_V, TOL_A, TOL_T = 2e-6, 2e-5, 2e-4, 2e-6
 
 
 def ruckig_va(h, v, a, j, dt):
-    """Vong Ruckig 1 chieu (giong trajectories.ruckig_1d) nhung tra ca van toc, gia toc va thoi gian T."""
+    """Vong Ruckig 1 chieu (giong trajectories.ruckig_1d) nhung tra ca van toc, gia toc, thoi gian T va doi
+    tuong Trajectory (de lay jerk tham chieu)."""
     from ruckig import InputParameter, OutputParameter, Result, Ruckig, Trajectory
     inp = InputParameter(1)
     inp.current_position = [0.0]; inp.current_velocity = [0.0]; inp.current_acceleration = [0.0]
@@ -53,7 +56,7 @@ def ruckig_va(h, v, a, j, dt):
         out.pass_to_input(inp)
     if res != Result.Finished:
         raise RuntimeError("Ruckig loi: {}".format(res))
-    return traj.duration, np.array(vel), np.array(acc)
+    return traj.duration, np.array(vel), np.array(acc), traj
 
 
 def f32(x):
@@ -119,10 +122,10 @@ def main():
     rows = [c[1:] for c in cases] + [c[1:] for c in edge]
     out = run_cpp(rows)
 
-    bad, worst, regimes, n_samples, n_boundary = 0, {}, {}, 0, 0
+    bad, worst, regimes, n_samples, n_boundary, n_jerk = 0, {}, {}, 0, 0, 0
     for (grp, h, v, acc, j, dt), r in zip(cases, out):
         s_ref = TR.ruckig_1d(h, v, acc, j, dt) if h >= 0 else -TR.ruckig_1d(-h, v, acc, j, dt)
-        T_ref, v_ref, a_ref = ruckig_va(h, v, acc, j, dt)
+        T_ref, v_ref, a_ref, traj = ruckig_va(h, v, acc, j, dt)
         S = r["S"]
         msgs = []
         if not r["ok"]:
@@ -148,6 +151,20 @@ def main():
             msgs.append("da/alim = {:.2e}".format(ea))
         if abs(r["T"] - T_ref) > TOL_T * T_ref + 1e-7:
             msgs.append("dT/T = {:.2e}".format(eT))
+        # jerk: do doc gia toc Ruckig hai ben t_k (tuyen tinh tung khuc -> chinh xac khi cung pha)
+        dl = 1e-5
+        for kk in np.unique(np.linspace(0, m - 1, min(m, 200)).astype(int)):
+            t = (kk + 1) * dt
+            if t + dl >= T_ref or t - dl <= 0:
+                continue
+            a0, al_, ar_ = (traj.at_time(x)[2][0] for x in (t, t - dl, t + dl))
+            sl, sr = (a0 - al_) / dl, (ar_ - a0) / dl
+            if abs(sl - sr) > 1e-3 * j:
+                continue                                  # sat moc pha
+            n_jerk += 1
+            if abs(S[kk, 3] - sr) > 2e-3 * j:
+                msgs.append("jerk {:.6g} != Ruckig {:.6g} tai t={:.6g}".format(S[kk, 3], sr, t))
+                break
         if abs(S[-1, 0] - h) > TOL_S * abs(h) + 1e-6 or S[-1, 1] != 0.0 or S[-1, 2] != 0.0:
             msgs.append("mau cuoi khong phai dich nghi")
         w = worst.setdefault(grp, dict(s=0.0, v=0.0, a=0.0, T=0.0, Tmax=0.0))
@@ -180,6 +197,7 @@ def main():
     for g, w in worst.items():
         print("  {:12s} T <= {:7.2f} s: s/h {:.1e}, v/vlim {:.1e}, a/alim {:.1e}, T {:.1e}".format(
             g, w["Tmax"], w["s"], w["v"], w["a"], w["T"]))
+    print("Jerk: {} mau so voi do doc gia toc Ruckig.".format(n_jerk))
     print("So sanh {} ca ({} mau, {} ca lech 1 mau do T sat boi so dt): {} khac biet.".format(
         len(cases) + len(edge), n_samples, n_boundary, bad))
     sys.exit(1 if bad else 0)
