@@ -1,4 +1,6 @@
-// board_pins.h - phan bo chan ESP32 NodeMCU-32S, theo mk2_connection_diagram (muc 3).
+// board_pins.h - phan bo chan ESP32-DevKitC-32D, theo mk2_connection_diagram (muc 3).
+// Tat ca chan duoi day nam tren header J2/J3 cua DevKitC V4, khong thuoc nhom flash (GPIO6-11)
+// hay strapping (GPIO0, 2, 5, 12, 15). Doi dau day theo nhan GPIO in tren board.
 // Doi day thi chi sua file nay.
 #pragma once
 #include <stdint.h>

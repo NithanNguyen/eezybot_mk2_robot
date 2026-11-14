@@ -1,7 +1,7 @@
 # eezybot_mk2_robot
 
 Firmware ESP32 cho tay máy EEZYbotARM Mk2 (3-DOF) phân loại nắp chai theo màu **xanh lá / đỏ / trắng** – đồ án CE212.
-Phần cứng: ESP32 NodeMCU-32S, 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
+Phần cứng: ESP32-DevKitC-32D (module ESP32-WROOM-32D, PlatformIO `board = esp32dev`), 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
 
 > Tay máy đang ở chế độ **chạy khô**: `src/robot/arm.cpp` tính đủ góc lệnh mỗi nhịp 20 ms (double-S + IK, khớp
 > từng nhịp với mô phỏng) nhưng **chưa phát xung servo**. Phát xung cần hiệu chuẩn góc servo → độ rộng xung trước
