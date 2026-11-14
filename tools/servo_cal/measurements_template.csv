@@ -25,8 +25,8 @@ base,1700,chord,-40,285
 base,1900,chord,-70,285
 # --- Kep (gap): khe nho nhat giua hai mat kep (mm), khoang 10..60 mm. Khong de hai ngon cham nhau.
 # Cac muc xung ben duoi la goi y, hay chinh theo chieu dong da tim o B2 sao cho khe nam trong 10..60 mm.
-gripper,1300,gap,,
-gripper,1400,gap,,
-gripper,1500,gap,,
-gripper,1600,gap,,
-gripper,1700,gap,,
+gripper,1300,gap,10,
+gripper,1400,gap,30,
+gripper,1500,gap,50,
+gripper,1600,gap,55,
+gripper,1700,gap,60,
