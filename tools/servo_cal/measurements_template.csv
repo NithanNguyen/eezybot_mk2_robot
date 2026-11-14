@@ -2,7 +2,31 @@
 # joint: base|shoulder|elbow|gripper. us: xung (STATUS/AT). method: chord|cos|sin|gap|deg. value: mm (hoac do).
 # radius: chi cho chord (mm, truc de -> vet danh dau). Moi khop >= 3 muc xung, nen 5.
 joint,us,method,value,radius
-base,1500,chord,0,
-shoulder,1500,cos,,
-elbow,1500,sin,,
+# --- J2 vai (cos): khoang cach ngang dau day doi -> tam truc vai O. DUONG neu E o phia truoc O (ve phia tram), AM neu o phia sau
+shoulder,1300,cos,-36,
+shoulder,1400,cos,-20,
+shoulder,1500,cos,0,
+shoulder,1600,cos,20,
+shoulder,1700,cos,36,
+# --- J3 khuyu (sin): do cao W tru do cao E (mm). DUONG neu W cao hon E
+# CHON MOT trong hai khoi duoi day theo chieu quay o B2 (chieu nao lam tay ngang CHUC XUONG), xoa khoi con lai.
+# Xung GIAM thi tay chuc xuong
+elbow,1500,sin,0,
+elbow,1400,sin,-18,
+elbow,1300,sin,-40,
+elbow,1200,sin,-62,
+elbow,1100,sin,-82,
+# --- J1 de (chord): day cung (mm) tu diem goc (o 1500 us) toi diem moi. DUONG neu lech sang TRAI khi dung sau robot nhin ra truoc
+# radius = khoang cach ngang tu tam truc de toi diem goc (mm), CUNG MOT SO cho ca 5 dong. Thay 285 bang so do that cua ban.
+base,1100,chord,70,285
+base,1300,chord,40,285
+base,1500,chord,0,285
+base,1700,chord,-40,285
+base,1900,chord,-70,285
+# --- Kep (gap): khe nho nhat giua hai mat kep (mm), khoang 10..60 mm. Khong de hai ngon cham nhau.
+# Cac muc xung ben duoi la goi y, hay chinh theo chieu dong da tim o B2 sao cho khe nam trong 10..60 mm.
+gripper,1300,gap,,
+gripper,1400,gap,,
 gripper,1500,gap,,
+gripper,1600,gap,,
+gripper,1700,gap,,
