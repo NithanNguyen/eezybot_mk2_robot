@@ -3,14 +3,14 @@
 Firmware ESP32 cho tay máy EEZYbotARM Mk2 (3-DOF) phân loại nắp chai theo màu **xanh lá / đỏ / trắng** – đồ án CE212.
 Phần cứng: ESP32-DevKitC-32D (module ESP32-WROOM-32D, PlatformIO `board = esp32dev`), 3 × MG996R, SG90, cảm biến màu GY-33 (TCS34725). Build bằng PlatformIO.
 
-> Tay máy đang ở chế độ **chạy khô**: `src/robot/arm.cpp` tính đủ góc lệnh mỗi nhịp 20 ms (double-S + IK, khớp
-> từng nhịp với mô phỏng) nhưng **chưa phát xung servo**. Phát xung cần hiệu chuẩn góc servo → độ rộng xung trước
-> (`ARM_OUTPUT_ENABLED=1` hiện báo lỗi biên dịch có chủ ý).
+> Env `robot` **phát xung servo thật** (`ARM_OUTPUT_ENABLED=1`): góc khớp → độ rộng xung theo hiệu chuẩn
+> trong `eezybot_mk2_sim/params.py` mục 4. Đế, vai, khuỷu đã hiệu chuẩn. Kẹp **chưa** hiệu chuẩn (SG90 hỏng) nên
+> GPIO33 không phát xung. Trước lần chạy đầu đọc `docs/chay_lan_dau.md`. Env `robot_dry` chạy khô, không phát xung.
 
 ## Cấu trúc
 
 ```
-platformio.ini        env robot (mặc định) và servo_center
+platformio.ini        env robot (mặc định, phát xung), robot_dry (chạy khô), servo_center, calib, servo_test
 include/
   board_pins.h        phân bổ chân
   arm_config.h        SINH TỰ ĐỘNG từ eezybot_mk2_sim/params.py (tools/export_arm_config.py): hình học,
@@ -84,12 +84,13 @@ Firmware chạy một task FreeRTOS chu kỳ 20 ms (ưu tiên 3, cùng lõi vớ
 | `ARM SORT <GREEN\|RED\|WHITE\|REJECT>` | chạy một chu trình gắp → thả → về Home, không cần cảm biến |
 | `ARM HOME` | về Home rồi mở kẹp |
 | `ARM TRACE 1` / `ARM TRACE 0` | in / tắt mỗi nhịp `CMD,<nhịp>,<pha>,<servo0>,<servo1>,<servo2>,<kẹp>` (độ) |
-| `ARM TIMING` / `ARM TIMING RESET` | thời gian tính mỗi nhịp (lớn nhất, trung bình), độ lệch nhịp 20 ms lớn nhất, số nhịp trễ, số dòng trace bị mất |
-| `ARM STATUS` | bận hay rảnh, pha, góc lệnh hiện tại |
+| `ARM TIMING` / `ARM TIMING RESET` | thời gian tính mỗi nhịp (lớn nhất, trung bình), độ lệch nhịp 20 ms lớn nhất, số nhịp trễ, số dòng trace bị mất, số xung bị kẹp vào giới hạn (`sat`) |
+| `ARM STATUS` | bận hay rảnh, pha, góc lệnh và độ rộng xung hiện tại (`us=` đế/vai/khuỷu/kẹp) |
+| `ARM OFF` | ngừng xung servo ngay (dừng khẩn cấp), chốt tới khi nhấn EN |
 
 Kết thúc mỗi chu trình firmware in `ARM DONE <tên> status=<OK|lỗi> ticks=<n> cmax_us=<µs> dropped=<n>`.
 
-Chạy khô trên ESP32 chỉ cần USB, **không cần bật nguồn servo** (S1 tắt). Đóng Serial Monitor rồi chạy:
+Chạy khô trên ESP32 chỉ cần USB, **không cần bật nguồn servo** (S1 tắt). Nạp `pio run -e robot_dry -t upload`, đóng Serial Monitor rồi chạy:
 
 ```bash
 pip3 install -r tools/colorcal/requirements.txt     # pyserial

@@ -9,7 +9,8 @@
 #include "ArmMotion.h"
 
 #if ARM_OUTPUT_ENABLED
-#error "ARM_OUTPUT_ENABLED=1 nhung chua co hieu chuan goc servo -> do rong xung (buoc 6). Giu 0 de chay kho."
+#include "ServoPwm.h"
+#include "board_pins.h"
 #endif
 
 const char* binName(Bin b) {
@@ -49,7 +50,17 @@ struct Timing {
   uint32_t ticks, active, cmaxUs, late, dropped;
   uint64_t csumUs;
   uint32_t jmaxUs;
+  uint32_t sat;   // so lan mot xung bi kep vao gioi han (MG996R_MIN/MAX_US, SG90_MIN/MAX_US)
 };
+
+// Kenh xung: 0 de, 1 vai, 2 khuyu (MG996R), 3 kep (SG90).
+const uint8_t NCH = 4;
+const float PULSE_LO[NCH] = {(float)armcfg::MG996R_MIN_US, (float)armcfg::MG996R_MIN_US,
+                             (float)armcfg::MG996R_MIN_US, (float)armcfg::SG90_MIN_US};
+const float PULSE_HI[NCH] = {(float)armcfg::MG996R_MAX_US, (float)armcfg::MG996R_MAX_US,
+                             (float)armcfg::MG996R_MAX_US, (float)armcfg::SG90_MAX_US};
+// Kep chi phat xung khi da hieu chuan that (params.py GRIP_PULSE_MEASURED): so gia dinh co the ep hai ngon vao nhau.
+const bool GRIP_OUTPUT = armcfg::GRIP_PULSE_MEASURED;
 
 QueueHandle_t g_req = nullptr, g_msg = nullptr;
 TaskHandle_t g_task = nullptr;
@@ -57,7 +68,13 @@ volatile bool g_running = false, g_trace = false;
 portMUX_TYPE g_mux = portMUX_INITIALIZER_UNLOCKED;
 Timing g_tm = {};               // bao ve boi g_mux
 motion::Command g_last = {};    // lenh nhip gan nhat, bao ve boi g_mux
+float g_lastUs[NCH] = {};       // xung (da kep) tuong ung g_last, bao ve boi g_mux
 motion::Sequencer g_seq;        // chi task dung sau begin()
+volatile bool g_outReq = true;  // false sau "ARM OFF" (chot toi khi reset): task ngung xung
+#if ARM_OUTPUT_ENABLED
+ServoPwm g_servo[NCH];          // chi task dung sau begin()
+bool g_outOn = false;           // chi task dung
+#endif
 
 motion::Dest toDest(Bin b) {
   switch (b) {
@@ -78,8 +95,34 @@ const char* reqName(const Req& r) {
   }
 }
 
-void output(const motion::Command&) {
-  // Chay kho: khong phat xung. Buoc 6 (hieu chuan) them: goc servo -> do rong xung -> ServoPwm::writeUs.
+// Goc khop -> do rong xung (lop do that, Mk2Kinematics::toPulseUs / gripPulseUs), kep vao gioi han tung kenh.
+// Tra ve so kenh bi kep. Chay kho van tinh de ARM STATUS cho thay xung se phat.
+uint32_t pulses(const motion::Command& c, float us[NCH]) {
+  mk2kin::toPulseUs(c.q, us);
+  us[3] = mk2kin::gripPulseUs(c.gripDeg);
+  uint32_t n = 0;
+  for (uint8_t i = 0; i < NCH; i++) {
+    if (us[i] < PULSE_LO[i]) { us[i] = PULSE_LO[i]; n++; }
+    else if (us[i] > PULSE_HI[i]) { us[i] = PULSE_HI[i]; n++; }
+  }
+  return n;
+}
+
+void output(const float us[NCH]) {
+#if ARM_OUTPUT_ENABLED
+  if (!g_outReq) {
+    if (g_outOn) {
+      for (uint8_t i = 0; i < NCH; i++) g_servo[i].off();
+      g_outOn = false;
+    }
+    return;
+  }
+  for (uint8_t i = 0; i < 3; i++) g_servo[i].writeUs((uint32_t)lroundf(us[i]));
+  if (GRIP_OUTPUT) g_servo[3].writeUs((uint32_t)lroundf(us[3]));
+  g_outOn = true;
+#else
+  (void)us;  // chay kho: khong phat xung
+#endif
 }
 
 void motionTask(void*) {
@@ -108,7 +151,14 @@ void motionTask(void*) {
     }
     motion::Command c;
     const bool act = g_seq.tick(c);
-    if (act) output(c);
+    float us[NCH] = {};
+    uint32_t sat = 0;
+    if (act) {
+      sat = pulses(c, us);
+      output(us);
+    } else if (!g_outReq) {
+      output(us);  // "ARM OFF" khi dang dung yen: tat xung ngay
+    }
     const uint32_t cus = (uint32_t)(esp_timer_get_time() - t0);
     const uint32_t jus = (uint32_t)(dj < 0 ? -dj : dj);
 
@@ -120,6 +170,8 @@ void motionTask(void*) {
       g_tm.active++;
       g_tm.csumUs += cus;
       if (cus > g_tm.cmaxUs) g_tm.cmaxUs = cus;
+      g_tm.sat += sat;
+      for (uint8_t i = 0; i < NCH; i++) g_lastUs[i] = us[i];
     }
     g_last = c;
     portEXIT_CRITICAL(&g_mux);
@@ -174,9 +226,20 @@ void Arm::begin() {
   g_msg = xQueueCreate(64, sizeof(Msg));
   // Khong co cam bien vi tri: coi tay dang o Home, kep mo. Tay that phai duoc dat ve Home truoc khi cap nguon servo.
   g_seq.reset(motion::homeJoint(), motion::gripOpenDeg());
+#if ARM_OUTPUT_ENABLED
+  // Kenh LEDC 0..3 (core 2.x), cung thu tu voi firmware calib. Chua phat xung cho toi nhip dau cua task.
+  const uint8_t pin[NCH] = {pins::SERVO_J1_BASE, pins::SERVO_J2_SHOULDER, pins::SERVO_J3_ELBOW, pins::SERVO_GRIPPER};
+  for (uint8_t i = 0; i < NCH; i++) {
+    if (i == 3 && !GRIP_OUTPUT) continue;
+    g_servo[i].attach(pin[i], i, (uint16_t)PULSE_LO[i], (uint16_t)PULSE_HI[i]);
+    g_servo[i].off();
+  }
+#endif
   xTaskCreatePinnedToCore(motionTask, "motion", TASK_STACK, nullptr, TASK_PRIO, &g_task, TASK_CORE);
   Serial.printf("# arm: task 20 ms, ARM_OUTPUT_ENABLED=%d (%s)\n", ARM_OUTPUT_ENABLED,
                 ARM_OUTPUT_ENABLED ? "phat xung" : "chay kho, khong phat xung servo");
+  if (ARM_OUTPUT_ENABLED && !GRIP_OUTPUT)
+    Serial.println("# arm: kep CHUA hieu chuan (GRIP_PULSE_MEASURED = false) -> khong phat xung GPIO33");
   goHome();
 }
 
@@ -248,18 +311,24 @@ bool Arm::handleCommand(char* tok[], int n) {
     if (n >= 3 && !strcmp(tok[2], "RESET")) g_tm = Timing();
     t = g_tm;
     portEXIT_CRITICAL(&g_mux);
-    Serial.printf("ARM TIMING,ticks=%lu,active=%lu,cmax_us=%lu,cmean_us=%lu,jitter_max_us=%lu,late=%lu,dropped=%lu\n",
-                  (unsigned long)t.ticks, (unsigned long)t.active, (unsigned long)t.cmaxUs,
-                  (unsigned long)(t.active ? t.csumUs / t.active : 0), (unsigned long)t.jmaxUs, (unsigned long)t.late,
-                  (unsigned long)t.dropped);
+    Serial.printf(
+        "ARM TIMING,ticks=%lu,active=%lu,cmax_us=%lu,cmean_us=%lu,jitter_max_us=%lu,late=%lu,dropped=%lu,sat=%lu\n",
+        (unsigned long)t.ticks, (unsigned long)t.active, (unsigned long)t.cmaxUs,
+        (unsigned long)(t.active ? t.csumUs / t.active : 0), (unsigned long)t.jmaxUs, (unsigned long)t.late,
+        (unsigned long)t.dropped, (unsigned long)t.sat);
+  } else if (!strcmp(sub, "OFF")) {
+    g_outReq = false;  // task tat xung o nhip ke tiep; chot toi khi reset
+    Serial.println("OK ARM OFF (ngung xung servo; dat tay ve Home roi nhan EN de bat lai)");
   } else if (!strcmp(sub, "STATUS")) {
     motion::Command c;
+    float us[NCH];
     portENTER_CRITICAL(&g_mux);
     c = g_last;
+    for (uint8_t i = 0; i < NCH; i++) us[i] = g_lastUs[i];
     portEXIT_CRITICAL(&g_mux);
-    Serial.printf("ARM STATUS,busy=%d,output=%d,phase=%s,servo=%.2f/%.2f/%.2f,grip=%.2f\n", busy() ? 1 : 0,
-                  ARM_OUTPUT_ENABLED, motion::phaseName(c.phase), c.servoDeg[0], c.servoDeg[1], c.servoDeg[2],
-                  c.gripDeg);
+    Serial.printf("ARM STATUS,busy=%d,output=%d,phase=%s,servo=%.2f/%.2f/%.2f,grip=%.2f,us=%.0f/%.0f/%.0f/%.0f\n",
+                  busy() ? 1 : 0, (ARM_OUTPUT_ENABLED && g_outReq) ? 1 : 0, motion::phaseName(c.phase),
+                  c.servoDeg[0], c.servoDeg[1], c.servoDeg[2], c.gripDeg, us[0], us[1], us[2], us[3]);
   } else {
     Serial.println("ERR ARM_UNKNOWN_CMD");
   }

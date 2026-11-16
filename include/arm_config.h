@@ -1,6 +1,6 @@
 // arm_config.h - SINH TU DONG boi eezybot_mk2_sim/tools/export_arm_config.py tu params.py. KHONG SUA TAY:
 // sua eezybot_mk2_sim/params.py roi chay lai `python tools/export_arm_config.py`.
-// Nguon: params.py + sort_scene.py, SHA-256 23d4f21ff4ffb516
+// Nguon: params.py + sort_scene.py, SHA-256 d1bb946a8cb41a44
 // Don vi: mm, do, giay. Goc khop: theta1 = de, theta2 = canh tay chinh so voi phuong ngang,
 // phi = tay ngang so voi phuong ngang (servo khuyu dat phi tuyet doi), phi - theta2 = goc khuyu tuong doi.
 #pragma once
@@ -58,6 +58,16 @@ constexpr float SERVO_MAX_DEG = 180.0f;
 constexpr float HOME_THETA1 = 0.0f;
 constexpr float HOME_THETA2 = 90.0f;
 constexpr float HOME_PHI = 0.0f;
+
+// ---- Anh xa goc khop -> do rong xung (us) [DO-THAT] (params.py muc 4, tools/servo_cal cua firmware):
+//   us[i] = SERVO_PULSE_HOME_US[i] + SERVO_PULSE_PER_DEG[i] * (q_i - HOME_i), q = (theta1, theta2, phi) do
+constexpr float SERVO_PULSE_HOME_US[3] = {1500.0f, 1500.0f, 1490.1f};
+constexpr float SERVO_PULSE_PER_DEG[3] = {-27.4924f, -12.6536f, 11.639f};
+constexpr unsigned MG996R_MIN_US = 500, MG996R_MAX_US = 2500;  // gioi han phan mem [CHON]
+// Kep: us = GRIP_PULSE_CLOSED_US + GRIP_PULSE_PER_DEG * (goc truc SG90 / GRIPPER_GEAR_RATIO)  [GIA-DINH: chua do, SG90 hong]
+constexpr float GRIP_PULSE_CLOSED_US = 1223.7f;
+constexpr float GRIP_PULSE_PER_DEG = 7.4491f;
+constexpr bool GRIP_PULSE_MEASURED = false;
 
 // ---- Quy dao double-S (params.py muc 8). Gioi han cua DAU CONG TAC, dung cho ca duong thang (ha/nhac)
 // va chuyen dong khop: q(t) = q0 + sigma(t) (q1 - q0) — gian thoi gian de dau cong tac khong vuot.

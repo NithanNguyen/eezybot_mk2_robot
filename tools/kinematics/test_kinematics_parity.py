@@ -13,6 +13,7 @@ So sanh (dau vao lam tron float32 truoc khi dua cho CA HAI ben):
   IK  (gripper, cap)  : trang thai (OK / NEAR_AXIS / OUT_OF_REACH / gioi han nao) va goc, |dq| <= 2e-5 rad
   LIM                 : trang thai gioi han
   SV / FS             : anh xa goc servo, |d| <= 1e-4 do / 2e-6 rad
+  PU / GP             : do rong xung (lop hieu chuan that), |d| <= 0.01 us (float32 ~2500 us -> ~3e-4 us)
   JAC                 : Jacobian, |dJ| <= 1e-5 * max|J|
 Dung sai: float32 co eps = 2^-24 ~ 6e-8; vi tri ~300 mm qua ~10 phep tinh -> ~1e-4 mm, goc ~2 rad -> ~1e-6 rad.
 Ca BIEN (ket qua so sanh nguong co the lat vi lam tron float): bien do khoang cach toi nguong < 2e-3 do,
@@ -32,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SRC = Path(__file__).resolve().parent / "host_kinematics.cpp"
 CFG = ROOT / "include" / "arm_config.h"
 TOL_P, TOL_Q, TOL_SV, TOL_FS, TOL_J = 5e-4, 2e-5, 1e-4, 2e-6, 1e-5
+TOL_US = 0.01
 BAND_DEG, BAND_C, BAND_RHO = 2e-3, 2e-6, 1e-3
 TOOLS = ("gripper", "cap")
 
@@ -63,7 +65,10 @@ def check_cfg(P, vals):
             "CTRL_SHOULDER_MIN": P.CTRL_SHOULDER_DEG[0], "CTRL_SHOULDER_MAX": P.CTRL_SHOULDER_DEG[1],
             "CTRL_ELBOW_MIN": P.CTRL_ELBOW_DEG[0], "CTRL_ELBOW_MAX": P.CTRL_ELBOW_DEG[1],
             "SERVO_MIN_DEG": P.SERVO_RANGE[0], "SERVO_MAX_DEG": P.SERVO_RANGE[1],
-            "SERVO_OFFSET_DEG": list(P.SERVO_OFFSET), "SERVO_SIGN": list(P.SERVO_SIGN)}
+            "SERVO_OFFSET_DEG": list(P.SERVO_OFFSET), "SERVO_SIGN": list(P.SERVO_SIGN),
+            "SERVO_PULSE_HOME_US": list(P.SERVO_PULSE_HOME_US), "SERVO_PULSE_PER_DEG": list(P.SERVO_PULSE_PER_DEG),
+            "GRIP_PULSE_CLOSED_US": P.GRIP_PULSE_CLOSED_US, "GRIP_PULSE_PER_DEG": P.GRIP_PULSE_PER_DEG,
+            "GRIPPER_GEAR_RATIO": P.GRIPPER_GEAR_RATIO}
     bad = []
     for k, v in want.items():
         got = vals.get(k)
@@ -180,13 +185,15 @@ def main():
             lines.append("JAC {} {!r} {!r} {!r}".format(ti, *q))
         lines.append("LIM {!r} {!r} {!r}".format(*q))
         lines.append("SV {!r} {!r} {!r}".format(*q))
+        lines.append("PU {!r} {!r} {!r}".format(*q))
     for s in SVIN:
         lines.append("FS {!r} {!r} {!r}".format(*s))
+        lines.append("GP {!r}".format(s[0]))
     for tl, p in ik_pts:
         lines.append("IK {} {!r} {!r} {!r}".format(TOOLS.index(tl), *p))
     out = iter(run_cpp(lines))
 
-    err = dict(fk=0.0, jac=0.0, sv=0.0, fs=0.0, ik_q=0.0, ik_p=0.0)
+    err = dict(fk=0.0, jac=0.0, sv=0.0, fs=0.0, ik_q=0.0, ik_p=0.0, pu=0.0)
     bad, nbound, counts, report = 0, dict(lim=0, ik=0), {}, []
 
     def fail(msg):
@@ -217,11 +224,18 @@ def main():
         e = np.abs(s_cpp - K.to_servo(q)).max(); err["sv"] = max(err["sv"], e)
         if e > TOL_SV:
             fail("SV q={} |d|={:.2e} do".format(q, e))
+        u_cpp = np.array([float(v) for v in next(out).split()])
+        e = np.abs(u_cpp - K.to_pulse(q)).max(); err["pu"] = max(err["pu"], e)
+        if e > TOL_US:
+            fail("PU q={} |d|={:.2e} us".format(q, e))
     for s in SVIN:
         q_cpp = np.array([float(v) for v in next(out).split()])
         e = np.abs(q_cpp - np.array(K.from_servo(s))).max(); err["fs"] = max(err["fs"], e)
         if e > TOL_FS:
             fail("FS s={} |d|={:.2e} rad".format(s, e))
+        e = abs(float(next(out)) - K.grip_pulse(s[0])); err["pu"] = max(err["pu"], e)
+        if e > TOL_US:
+            fail("GP {} |d|={:.2e} us".format(s[0], e))
     for tl, p in ik_pts:
         K.set_tool(tl)
         f = next(out).split()
@@ -253,7 +267,8 @@ def main():
     print("Trang thai: " + ", ".join("{} {}".format(k, v) for k, v in sorted(counts.items())))
     print("Ca bien bo qua so trang thai: LIM {}, IK {}".format(nbound["lim"], nbound["ik"]))
     print("Sai so lon nhat: FK {:.1e} mm, IK goc {:.1e} rad, IK -> FK {:.1e} mm, JAC {:.1e} (tuong doi), "
-          "SV {:.1e} do, FS {:.1e} rad".format(err["fk"], err["ik_q"], err["ik_p"], err["jac"], err["sv"], err["fs"]))
+          "SV {:.1e} do, FS {:.1e} rad, PU/GP {:.1e} us".format(err["fk"], err["ik_q"], err["ik_p"], err["jac"], err["sv"],
+                                                              err["fs"], err["pu"]))
     print("So sanh {} lenh: {} khac biet.".format(len(lines), bad))
     sys.exit(1 if bad else 0)
 

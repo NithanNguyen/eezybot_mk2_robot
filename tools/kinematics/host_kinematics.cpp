@@ -6,6 +6,8 @@
 //   LIM th1 th2 phi           -> "<STATUS>"
 //   SV  th1 th2 phi           -> "s0 s1 s2"   (goc servo, do)
 //   FS  s0 s1 s2              -> "th1 th2 phi"
+//   PU  th1 th2 phi           -> "us0 us1 us2" (do rong xung, toPulseUs, chua kep)
+//   GP  grip_deg              -> "us"          (xung kep, gripPulseUs, chua kep)
 //   JAC tool th1 th2 phi      -> 9 so, theo hang
 #include <cstdio>
 #include <cstring>
@@ -43,6 +45,13 @@ int main() {
       const float s[3] = {a, b, c};
       const Joint q = fromServo(s);
       std::printf("%.9g %.9g %.9g\n", (double)q.th1, (double)q.th2, (double)q.phi);
+    } else if (!std::strcmp(cmd, "PU") && std::scanf("%f %f %f", &a, &b, &c) == 3) {
+      const Joint q = {a, b, c};
+      float u[3];
+      toPulseUs(q, u);
+      std::printf("%.9g %.9g %.9g\n", (double)u[0], (double)u[1], (double)u[2]);
+    } else if (!std::strcmp(cmd, "GP") && std::scanf("%f", &a) == 1) {
+      std::printf("%.9g\n", (double)gripPulseUs(a));
     } else if (!std::strcmp(cmd, "JAC") && std::scanf("%d %f %f %f", &ti, &a, &b, &c) == 4) {
       const Joint q = {a, b, c};
       float J[3][3];

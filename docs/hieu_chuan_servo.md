@@ -72,10 +72,12 @@ Script in ra, cho mỗi khớp:
 
 Script cảnh báo khi sai số dư lớn hơn 1° (nên đo lại) hoặc khi giới hạn khớp đòi xung ngoài 500–2500 µs. Cuối cùng nó in sẵn đoạn `SERVO_PULSE_HOME_US`, `SERVO_PULSE_PER_DEG`, `GRIP_PULSE_CLOSED_US` và `GRIP_PULSE_PER_DEG` để dán vào `params.py`.
 
-Gửi lại **file CSV và toàn bộ output** của script. Bước tiếp theo sẽ là:
-1. Đưa các số này vào `params.py` và xuất lại `arm_config.h`.
-2. Thêm ánh xạ góc → xung vào `arm.cpp` và bỏ chặn `ARM_OUTPUT_ENABLED`.
-3. Chạy lần đầu với tốc độ thấp: chỉ `ARM HOME`, rồi tới phía trên trạm, trước khi chạy cả chu trình.
+Sau đó:
+1. Dán các số vào `eezybot_mk2_sim/params.py` mục 4. Số nào không phải đo thật thì ghi `[GIA-DINH]`. Với kẹp, chỉ đặt `GRIP_PULSE_MEASURED = True` khi đã đo B3 trên SG90 thật.
+2. Trong repo mô phỏng chạy `python tools/export_arm_config.py` để sinh lại `include/arm_config.h`, rồi chạy `python3 tools/kinematics/test_kinematics_parity.py`.
+3. Chạy tay máy lần đầu theo `docs/chay_lan_dau.md`.
+
+Lần hiệu chuẩn 2026-11-16 (commit `f00919d`): đế, vai, khuỷu đạt. Số của kẹp là số giả định vì SG90 hỏng.
 
 ## Kiểm thử trên PC
 

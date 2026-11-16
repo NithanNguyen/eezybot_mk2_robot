@@ -1,15 +1,19 @@
 // arm.h - dieu khien tay may: task FreeRTOS chu ky 20 ms chay lib/Motion/ArmMotion.h (DoubleS1D + Mk2Kinematics).
 // Thong so dong hoc / quy dao: include/arm_config.h (sinh tu eezybot_mk2_sim/params.py, khong sua tay).
 //
-// CHAY KHO (ARM_OUTPUT_ENABLED = 0, mac dinh): tinh day du goc lenh moi nhip nhung KHONG phat xung servo.
-// Bat ARM_OUTPUT_ENABLED = 1 se bao loi bien dich cho toi khi co hieu chuan goc servo -> do rong xung (buoc 6).
+// ARM_OUTPUT_ENABLED = 1 (env robot): moi nhip goc khop -> do rong xung theo hieu chuan that
+//   (arm_config.h SERVO_PULSE_*, Mk2Kinematics::toPulseUs), kep vao MG996R_MIN/MAX_US, phat qua ServoPwm.
+//   Kep SG90 chi phat xung khi GRIP_PULSE_MEASURED = true (params.py).
+// ARM_OUTPUT_ENABLED = 0 (env robot_dry, mac dinh khi khong co co): CHAY KHO, tinh day du nhung khong phat xung.
+// Firmware khong co cam bien vi tri: luc khoi dong coi tay dang o Home va lap tuc phat xung Home.
 //
 // Lenh Serial (main.cpp chuyen cac dong bat dau bang "ARM"):
 //   ARM SORT <GREEN|RED|WHITE|REJECT>  chay mot chu trinh gap -> tha -> ve Home (khong can cam bien)
 //   ARM HOME                           ve Home roi mo kep
 //   ARM TRACE 1 | ARM TRACE 0          in / tat moi nhip: "CMD,<nhip>,<pha>,<servo0>,<servo1>,<servo2>,<kep>" (do)
-//   ARM TIMING [RESET]                 thong ke thoi gian tinh moi nhip va do lech nhip 20 ms
-//   ARM STATUS                         trang thai, goc lenh hien tai
+//   ARM TIMING [RESET]                 thong ke thoi gian tinh moi nhip, do lech nhip 20 ms, so xung bi kep (sat)
+//   ARM STATUS                         trang thai, goc lenh va do rong xung (us: de/vai/khuyu/kep) hien tai
+//   ARM OFF                            ngung xung servo ngay (servo tha long), chot toi khi nhan EN
 // Ket thuc moi chu trinh in "ARM DONE <ten> status=<OK|loi IK/gioi han> ticks=<n> cmax_us=<us> dropped=<n>".
 // tools/motion/test_motion_parity.py --port <cong> dung cac lenh nay de so trace ESP32 voi mo phong.
 #pragma once

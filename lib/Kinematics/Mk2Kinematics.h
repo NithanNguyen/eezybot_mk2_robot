@@ -90,6 +90,21 @@ inline void toServo(const Joint& q, float deg[3]) {
   deg[2] = SERVO_OFFSET_DEG[2] + SERVO_SIGN[2] * (q.phi * RAD2DEG);
 }
 
+// (th1, th2, phi) rad -> do rong xung 3 servo (us), lop do that (tools/servo_cal), CHUA kep gioi han:
+//   us[i] = SERVO_PULSE_HOME_US[i] + SERVO_PULSE_PER_DEG[i] * (q_i - HOME_i), q tinh bang do.
+// Giong mk2_kinematics.to_pulse() cua mo phong; khong dung SERVO_OFFSET_DEG / SERVO_SIGN.
+inline void toPulseUs(const Joint& q, float us[3]) {
+  using namespace armcfg;
+  const float d[3] = {q.th1 * RAD2DEG - HOME_THETA1, q.th2 * RAD2DEG - HOME_THETA2, q.phi * RAD2DEG - HOME_PHI};
+  for (int i = 0; i < 3; i++) us[i] = SERVO_PULSE_HOME_US[i] + SERVO_PULSE_PER_DEG[i] * d[i];
+}
+
+// Goc truc SG90 tinh tu luc dong (do) -> do rong xung kep (us), CHUA kep gioi han. Giong mk2_kinematics.grip_pulse().
+inline float gripPulseUs(float gripServoDeg) {
+  using namespace armcfg;
+  return GRIP_PULSE_CLOSED_US + GRIP_PULSE_PER_DEG * (gripServoDeg / GRIPPER_GEAR_RATIO);
+}
+
 inline Joint fromServo(const float deg[3]) {
   using namespace armcfg;
   Joint q;
